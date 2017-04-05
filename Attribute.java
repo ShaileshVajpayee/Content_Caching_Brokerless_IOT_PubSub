@@ -1,7 +1,7 @@
 import java.util.Scanner;
 
 /**
- * Created by shaileshvajpayee on 3/9/17.
+ * Created by shaileshvajpayee
  */
 public class Attribute {
     String lhs;
@@ -14,9 +14,9 @@ public class Attribute {
 
     public void get_attr(){
         s = new Scanner(System.in);
-        System.out.println("Please enter your subscription(eg. a < 10)... Enter lhs: ");
+        System.out.println("Please enter your subscription(eg. a < 10)...\nEnter lhs: ");
         lhs = s.nextLine();
-        System.out.println("Please enter your subscription(eg. a < 10)... Enter operator: ");
+        System.out.println("Enter operator: ");
         char ch = s.nextLine().charAt(0);
         if(ch == '='){
             equal_to = true;
@@ -27,5 +27,23 @@ public class Attribute {
         else if(ch == '>'){
             more_than = true;
         }
+        System.out.println("Enter rhs: ");
+        rhs = s.nextLine();
+    }
+
+    @Override
+    public String toString() {
+        String attr = lhs + " ";
+        if(equal_to){
+            attr += "= ";
+        }
+        else if(less_than){
+            attr += "< ";
+        }
+        else if(more_than){
+            attr += "> ";
+        }
+        attr += rhs;
+        return attr;
     }
 }
