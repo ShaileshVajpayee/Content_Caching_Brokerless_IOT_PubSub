@@ -80,7 +80,7 @@ public class Publisher {
             try {
                 System.out.println(Listen_socket.getLocalPort());
                 sendMessage(RouterIP, RouterPort, "1 " + Listen_socket.getLocalPort());
-                logger.logMessage("Sent FogIP req to Router: " + RouterIP + " " + RouterPort);
+                logger.logMessage("Sent FogIP req: " + "1 " + Listen_socket.getLocalPort() + " -> to Router: " + RouterIP + " " + RouterPort);
                 byte[] bytes = new byte[1024];
                 DatagramPacket p = new DatagramPacket(bytes, bytes.length);
                 Listen_socket.receive(p);

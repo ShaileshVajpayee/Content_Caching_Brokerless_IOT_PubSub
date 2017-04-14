@@ -3,7 +3,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
 
 /**
  * Created by shaileshvajpayee
@@ -49,14 +48,25 @@ public class Fog_Node {
                 inetAddress = InetAddress.getByName(IP);
                 DatagramPacket p = new DatagramPacket(byte_stream, byte_stream.length, inetAddress, Port);
                 Send_socket.send(p);
+                logger.logMessage(msg + " -> sent to " + IP + " " + Port);
             } catch (Exception e) {
                 e.printStackTrace();
                 logger.logMessage(e.toString());
             }
         }
 
-        private void subscriber_communication(String[] data, String IP){
-            logger.logMessage("Received subscriber req " + data[1] + " " + data[2] + " " + data[3] + " from subsscriber " + IP);
+        private void subscriber_communication(String[] data, String IP, int Port){
+            String attr = data[1] + " " + data[2] + " " + data[3];
+            logger.logMessage("Received subscriber req " + attr + " from subscriber " + IP);
+            if(attr_to_owners.containsKey(attr)){ // if attr owner available
+                sendMessage(IP, Port, attr_to_owners.get(attr));
+                logger.logMessage("owner : " + attr_to_owners.get(attr) + " -> sent to " + IP + " " + Port);
+            }
+            else{ // else make subscriber the owner
+                sendMessage(IP, Port, "l");
+                logger.logMessage("l -> sent to " + IP + " " + Port);
+                attr_to_owners.put(attr,IP + " " + Port);
+            }
         }
 
         private void publisher_communication(String[] data, String IP){
@@ -66,8 +76,9 @@ public class Fog_Node {
         private void parse_msg(DatagramPacket p){
             String received_data = new String(Arrays.copyOfRange(p.getData(), 0, p.getLength()));
             String[] data = received_data.split(" ");
+//            System.out.println(received_data);
             if (data[0].equals("0")) { // 0 means subscriber
-                subscriber_communication(data, p.getAddress().toString());
+                subscriber_communication(data, p.getAddress().toString(), Integer.parseInt(data[4]));
             }
             else{
                 publisher_communication(data, p.getAddress().toString());
