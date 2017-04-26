@@ -1,8 +1,5 @@
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
+import java.net.*;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -25,6 +22,8 @@ public class Subscriber {
     private static int FogPort;
     private static DatagramSocket Listen_socket;
     private static DatagramSocket Send_socket;
+    private static String IP;
+    private static int Port;
 
     public Subscriber() {
         attrs = new LinkedList<>();
@@ -34,6 +33,26 @@ public class Subscriber {
         Leader_pred = new LinkedHashMap<>();
         Leader_succ = new LinkedHashMap<>();
         add_attr();
+        try {
+            IP = InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) throws SocketException {
+        if (args.length < 3) {
+            System.out.println("Please enter arguments: ListenPort RouterIP RouterPort");
+            System.exit(0);
+        }
+        Port = Integer.parseInt(args[0]);
+        Subscriber sb = new Subscriber();
+        Listen_socket = new DatagramSocket(Port);
+        Send_socket = new DatagramSocket();
+        RouterIP = args[1];
+        RouterPort = Integer.parseInt(args[2]);
+        Communicator comm = new Communicator();
+        new Thread(comm).start();
     }
 
     public void make_me_leader(boolean leader_left) { // If no group or Leader left and is 1st coleader
@@ -56,20 +75,6 @@ public class Subscriber {
         logger.logMessage("Attribute added : " + attr.toString());
     }
 
-    public static void main(String[] args) throws SocketException {
-        if (args.length < 3) {
-            System.out.println("Please enter arguments: ListenPort RouterIP RouterPort");
-            System.exit(0);
-        }
-        Subscriber sb = new Subscriber();
-        Listen_socket = new DatagramSocket(Integer.parseInt(args[0]));
-        Send_socket = new DatagramSocket();
-        RouterIP = args[1];
-        RouterPort = Integer.parseInt(args[2]);
-        Communicator comm = new Communicator();
-        new Thread(comm).start();
-    }
-
     public void print_attr() {
         for (Attribute attribute : attrs) {
             System.out.println(attribute.toString());
@@ -78,15 +83,19 @@ public class Subscriber {
 
     private static class Communicator implements Runnable { // will have separate port
 
+        private void msgAnalyzer() {
+
+        }
+
         private void sendMessage(String IP, int Port, String msg) {
-            System.out.println("the msg is: " + attrs.get(0).toString());
+            System.out.println("the msg is: " + msg);
             byte[] byte_stream = msg.getBytes();
             InetAddress inetAddress;
             try {
                 inetAddress = InetAddress.getByName(IP);
                 DatagramPacket p = new DatagramPacket(byte_stream, byte_stream.length, inetAddress, Port);
                 Send_socket.send(p);
-                System.out.println("Message: " + msg + " -> sent to " + IP + " " + Port);
+                logger.logMessage("Message: " + msg + " -> sent to " + IP + " " + Port);
             } catch (Exception e) {
                 e.printStackTrace();
                 logger.logMessage(e.toString());
@@ -103,24 +112,60 @@ public class Subscriber {
                 String[] received_data = (new String(Arrays.copyOfRange(p.getData(), 0, p.getLength()))).split(" ");
                 FogIP = received_data[0];
                 FogPort = Integer.parseInt(received_data[1]);
+                logger.logMessage("Received Fog info : " + FogIP + " " + FogPort);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        private void parse_msg(DatagramPacket p){
+        private void parse_msg(DatagramPacket p) {
             String received_data = new String(Arrays.copyOfRange(p.getData(), 0, p.getLength()));
             String[] data = received_data.split(" ");
-            if (data[0].equals("l")) {
-                leader = true;
-            }
-            else if (data[0].equals("leader")) { // other subscribers for group
+            Subscriber_Comm_Packet_Analyzer pkt_analyzer = new Subscriber_Comm_Packet_Analyzer();
+            pkt_analyzer.init_packet(data);
 
+            logger.logMessage("Received packet : " + pkt_analyzer.packet.print_packet());
+
+            if (pkt_analyzer.packet.msg_from_fog && !pkt_analyzer.packet.you_are_leader) {
+                if (pkt_analyzer.packet.attr.toString().equals(attrs.get(0).toString())) { // if attr matched
+                    Leader_Group_List.put(pkt_analyzer.packet.sub_IP, pkt_analyzer.packet.sub_Port);
+                    logger.logMessage("Received msg from: " + pkt_analyzer.packet.sub_IP + " " + pkt_analyzer.packet.sub_Port);
+                    logger.logMessage("Added to group with leader (me): " + IP + " " + Port);
+                    pkt_analyzer.packet.msg_from_leader = true;
+                    pkt_analyzer.packet.msg_from_fog = false;
+                    pkt_analyzer.packet.msg_from_sub = false;
+                    sendMessage(pkt_analyzer.packet.sub_IP, pkt_analyzer.packet.sub_Port, pkt_analyzer.packet.toString());
+                } else {
+                    for (String key : Leader_succ.keySet()) {
+                        sendMessage(key, Leader_succ.get(key), pkt_analyzer.packet.toString());
+                        logger.logMessage("Fowarded add_sub req to successors" + key + " " + Leader_succ.get(key));
+                    }
+                }
+            } else if (pkt_analyzer.packet.msg_from_fog && pkt_analyzer.packet.you_are_leader) {
+                logger.logMessage("Received notif from fog");
+                leader = pkt_analyzer.packet.you_are_leader;
+
+            } else if (data[0].equals("leader")) { // other subscribers for group
+                //add subscribers to the leader list
+            } else if (data[0].equals("pub")) {
+                System.out.println(received_data);
             }
         }
 
-        private void fog_communication() throws IOException {
-            sendMessage(FogIP,FogPort, "0 " + attrs.get(0).toString() + " " + Listen_socket.getLocalPort());
+        private void fog_communication(Attribute attribute) throws IOException {
+            Subscriber_Comm_Packet pkt = new Subscriber_Comm_Packet(
+                    IP,
+                    Port,
+                    attribute,
+                    false,
+                    false,
+                    "none",
+                    "none",
+                    false,
+                    false,
+                    true);
+
+            sendMessage(FogIP, FogPort, "0 " + pkt.toString());
             byte[] bytes = new byte[1024];
             DatagramPacket p = new DatagramPacket(bytes, bytes.length);
             Listen_socket.receive(p);
@@ -134,10 +179,10 @@ public class Subscriber {
         public void run() {
             try {
                 get_FogAddr();
-                for(int i = 0; i < attrs.size();i++) {
-                    fog_communication();
+                for (int i = 0; i < attrs.size(); i++) {
+                    fog_communication(attrs.get(i));
                 } // finished registering for subscriptions... if leader of any group must forward publisher data which it receives.
-                while(true){
+                while (true) {
                     byte[] bytes = new byte[1024];
                     DatagramPacket p = new DatagramPacket(bytes, bytes.length);
                     Listen_socket.receive(p);
@@ -149,7 +194,4 @@ public class Subscriber {
             }
         }
     }
-
-
 }
-// Leader structure (can be subscriber or Leader)

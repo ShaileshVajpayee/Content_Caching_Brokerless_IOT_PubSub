@@ -92,19 +92,19 @@ public class Publisher {
             }
         }
 
-        private void publish_to_fog(){
-            sendMessage(FogIP,FogPort,"1 " + my_attribute + " = " + attr_value);
+        private void publish_to_fog() {
+            sendMessage(FogIP, FogPort, "1 " + my_attribute + " = " + attr_value);
         }
 
         @Override
         public void run() {
             get_FogAddr();
-            try{
-                while(true){
+            try {
+                while (true) {
                     publish_to_fog();
                     Thread.sleep(5000);
                 }
-            } catch(Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
                 logger.logMessage(e.toString());
             }

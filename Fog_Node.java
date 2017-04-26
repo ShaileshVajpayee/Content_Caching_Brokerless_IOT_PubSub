@@ -24,8 +24,8 @@ public class Fog_Node {
         new Thread(comm).start();
     }
 
-    public static void main(String[] args) throws Exception{
-        if(args.length < 1){
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
             System.out.println("Please enter arguments:$ ListenPort : 9000");
             System.exit(0);
         }
@@ -39,7 +39,7 @@ public class Fog_Node {
     }
 
 
-    private static class Communicator implements Runnable{
+    private static class Communicator implements Runnable {
 
         private void sendMessage(String IP, int Port, String msg) {
             byte[] byte_stream = msg.getBytes();
@@ -55,33 +55,69 @@ public class Fog_Node {
             }
         }
 
-        private void subscriber_communication(String[] data, String IP, int Port){
-            String attr = data[1] + " " + data[2] + " " + data[3];
-            logger.logMessage("Received subscriber req " + attr + " from subscriber " + IP);
-            if(attr_to_owners.containsKey(attr)){ // if attr owner available
-                sendMessage(IP, Port, attr_to_owners.get(attr));
-                logger.logMessage("owner : " + attr_to_owners.get(attr) + " -> sent to " + IP + " " + Port);
-            }
-            else{ // else make subscriber the owner
-                sendMessage(IP, Port, "l");
-                logger.logMessage("l -> sent to " + IP + " " + Port);
-                attr_to_owners.put(attr,IP + " " + Port);
+//        private Subscriber_Comm_Packet assemble_sub_msg(String[] data){
+//
+//        }
+
+        private void subscriber_communication(String[] data) {
+            // analyze the sub_comm_packet
+            Subscriber_Comm_Packet_Analyzer pkt_analyzer = new Subscriber_Comm_Packet_Analyzer();
+            pkt_analyzer.init_packet(data);
+
+//            String attr = data[1];// + " " + data[2] + " " + data[3];
+            logger.logMessage("Received msg from sub --> " + pkt_analyzer.packet.print_packet());
+            logger.logMessage("Received subscriber req for " + pkt_analyzer.packet.attr.get_lhs() + " from subscriber " + pkt_analyzer.packet.sub_IP + " " + pkt_analyzer.packet.sub_Port);
+
+            if (attr_to_owners.containsKey(pkt_analyzer.packet.attr.lhs)) { // if attr owner available
+                pkt_analyzer.packet.add_group_member = true;
+                pkt_analyzer.packet.group_member = pkt_analyzer.packet.sub_IP + " " + pkt_analyzer.packet.sub_Port;
+                pkt_analyzer.packet.msg_from_fog = true;
+
+                String[] owner = attr_to_owners.get(pkt_analyzer.packet.attr.lhs).split(" ");
+
+                sendMessage(owner[0], Integer.parseInt(owner[1]), pkt_analyzer.packet.toString());
+                logger.logMessage("msg : " + pkt_analyzer.packet.print_packet() + " -> sent to " + owner[0] + " " + owner[1]);
+            } else { // else make subscriber the owner
+                logger.logMessage("No owner at fog for : " + pkt_analyzer.packet.attr.get_lhs() + "\n-- adding owner now!");
+                pkt_analyzer.packet.you_are_leader = true;
+                pkt_analyzer.packet.msg_from_fog = true;
+                pkt_analyzer.packet.msg_from_sub = false;
+                sendMessage(pkt_analyzer.packet.sub_IP, pkt_analyzer.packet.sub_Port, pkt_analyzer.packet.toString());
+                logger.logMessage("msg sent -->" + pkt_analyzer.packet.print_packet());
+                attr_to_owners.put(pkt_analyzer.packet.attr.get_lhs(), pkt_analyzer.packet.sub_IP + " " + pkt_analyzer.packet.sub_Port);
+                logger.logMessage("sub made owner notif sent to ->" + pkt_analyzer.packet.sub_IP + " " + pkt_analyzer.packet.sub_Port);
             }
         }
 
-        private void publisher_communication(String[] data, String IP){
+        private void publisher_communication(String[] data, String IP) {
             logger.logMessage("Received published info " + data[1] + " " + data[2] + " " + data[3] + " from publisher " + IP);
+            if (attr_to_owners.size() > 0) {
+                String[] IP_Port = attr_to_owners.get(data[1]).split(" ");
+                Attribute attrib = new Attribute();
+                attrib.set_attr(data[1], data[2],data[3]);
+                Subscriber_Comm_Packet pkt = new Subscriber_Comm_Packet(
+                        IP_Port[0],
+                        Integer.parseInt(IP_Port[1]),
+                        attrib,
+                        true,
+                        false,
+                        "none",
+                        attrib.toString(),
+                        true,
+                        false,
+                        false);
+                sendMessage(IP_Port[0], Integer.parseInt(IP_Port[1]), "pub " + data[1] + " " + data[2] + " " + data[3]);
+            }
         }
 
-        private void parse_msg(DatagramPacket p){
+        private void parse_msg(DatagramPacket p) {
             String received_data = new String(Arrays.copyOfRange(p.getData(), 0, p.getLength()));
             String[] data = received_data.split(" ");
 //            System.out.println(received_data);
             if (data[0].equals("0")) { // 0 means subscriber
-                subscriber_communication(data, p.getAddress().toString(), Integer.parseInt(data[4]));
-            }
-            else{
-                publisher_communication(data, p.getAddress().toString());
+                subscriber_communication(data);
+            } else {
+                publisher_communication(data, p.getAddress().getHostAddress());
             }
         }
 
@@ -95,7 +131,7 @@ public class Fog_Node {
                     Listen_socket.receive(p);
                     parse_msg(p);
                 }
-            } catch(Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
                 logger.logMessage(e.toString());
             }
