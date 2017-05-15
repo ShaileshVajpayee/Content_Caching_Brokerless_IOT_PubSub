@@ -19,11 +19,19 @@ public class Fog_Node {
         logger = new Logger("Fog_logs.txt");
     }
 
+    /**
+     * Used to begin the threads
+     */
     private static void begin_threads() {
         Communicator comm = new Communicator();
         new Thread(comm).start();
     }
 
+    /**
+     * The main function of this class
+     * @param args: ListenPort
+     * @throws Exception
+     */
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.out.println("Please enter arguments:$ ListenPort : 9000");
@@ -39,8 +47,17 @@ public class Fog_Node {
     }
 
 
+    /**
+     * This is a Thread class which is the communicator at the Fog Node
+     */
     private static class Communicator implements Runnable {
 
+        /**
+         * This function is used to send a message
+         * @param IP Destination IP
+         * @param Port Destination Port
+         * @param msg Message to be sent
+         */
         private void sendMessage(String IP, int Port, String msg) {
             byte[] byte_stream = msg.getBytes();
             InetAddress inetAddress;
@@ -55,11 +72,11 @@ public class Fog_Node {
             }
         }
 
-//        private Subscriber_Comm_Packet assemble_sub_msg(String[] data){
-//
-//        }
-
-        private void subscriber_communication(String[] data) {
+        /**
+         * This function controls the communication with subscribers
+         * @param data The data received from subscriber
+         */
+        private void subscriber_communication(String[] data) { //ADD MEMBER TO GROUP PACKET
             // analyze the sub_comm_packet
             Subscriber_Comm_Packet_Analyzer pkt_analyzer = new Subscriber_Comm_Packet_Analyzer();
             pkt_analyzer.init_packet(data);
@@ -72,6 +89,8 @@ public class Fog_Node {
                 pkt_analyzer.packet.add_group_member = true;
                 pkt_analyzer.packet.group_member = pkt_analyzer.packet.sub_IP + " " + pkt_analyzer.packet.sub_Port;
                 pkt_analyzer.packet.msg_from_fog = true;
+                pkt_analyzer.packet.msg_from_leader = false;
+                pkt_analyzer.packet.msg_from_sub = false;
 
                 String[] owner = attr_to_owners.get(pkt_analyzer.packet.attr.lhs).split(" ");
 
@@ -79,7 +98,7 @@ public class Fog_Node {
                 logger.logMessage("msg : " + pkt_analyzer.packet.print_packet() + " -> sent to " + owner[0] + " " + owner[1]);
             } else { // else make subscriber the owner
                 logger.logMessage("No owner at fog for : " + pkt_analyzer.packet.attr.get_lhs() + "\n-- adding owner now!");
-                pkt_analyzer.packet.you_are_leader = true;
+                pkt_analyzer.packet.you_are_leader = false;
                 pkt_analyzer.packet.msg_from_fog = true;
                 pkt_analyzer.packet.msg_from_sub = false;
                 sendMessage(pkt_analyzer.packet.sub_IP, pkt_analyzer.packet.sub_Port, pkt_analyzer.packet.toString());
@@ -89,9 +108,14 @@ public class Fog_Node {
             }
         }
 
+        /**
+         * This function controls communication with publishers.
+         * @param data
+         * @param IP
+         */
         private void publisher_communication(String[] data, String IP) {
             logger.logMessage("Received published info " + data[1] + " " + data[2] + " " + data[3] + " from publisher " + IP);
-            if (attr_to_owners.size() > 0) {
+            if (attr_to_owners.get(data[1]) != null) {
                 String[] IP_Port = attr_to_owners.get(data[1]).split(" ");
                 Attribute attrib = new Attribute();
                 attrib.set_attr(data[1], data[2],data[3]);
@@ -106,10 +130,16 @@ public class Fog_Node {
                         true,
                         false,
                         false);
-                sendMessage(IP_Port[0], Integer.parseInt(IP_Port[1]), "pub " + data[1] + " " + data[2] + " " + data[3]);
+//                System.out.println(pkt.print_packet());
+                sendMessage(IP_Port[0], Integer.parseInt(IP_Port[1]), pkt.toString());
+                logger.logMessage(data[1] + " " + data[2] + " " + data[3] + " pub msg forwared to owner " + IP_Port[0] + " " + IP_Port[1]);
             }
         }
 
+        /**
+         * Parse the received msg
+         * @param p
+         */
         private void parse_msg(DatagramPacket p) {
             String received_data = new String(Arrays.copyOfRange(p.getData(), 0, p.getLength()));
             String[] data = received_data.split(" ");

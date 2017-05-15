@@ -46,6 +46,12 @@ public class Router {
         new Thread(comm).start();
     }
 
+    /**
+     * main function
+     * @param args ListenPort FogIP FogPort
+     * @throws UnknownHostException
+     * @throws SocketException
+     */
     public static void main(String[] args) throws UnknownHostException, SocketException {
         if(args.length < 3){
             System.out.println("Please enter arguments:$ ListenPort FogIP FogPort :");
@@ -61,6 +67,9 @@ public class Router {
         begin_threads();
     }
 
+    /**
+     * Communicator class
+     */
     private static class Communicator implements Runnable { // will have separate port
 
         private void sendMessage(String IP, int Port, String msg) {
@@ -78,7 +87,7 @@ public class Router {
         }
 
         private void send_Fog_addr(String IP, int Port, String msg){
-            String log_line = "Received request for Fog address from " + IP;
+            String log_line = "Received request for Fog address from " + IP + " " + Port;
             logger.logMessage(log_line);
             sendMessage(IP, Port, msg);
         }

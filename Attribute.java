@@ -54,6 +54,25 @@ public class Attribute {
         return lhs;
     }
 
+    public boolean compare_attr(Attribute attr_leader, Attribute attr_new){ //attr_new is published with =
+        if(attr_leader.toString().equals(attr_new.toString())){
+            return true;
+        }
+        int l_rhs = Integer.parseInt(attr_leader.rhs);
+        int n_rhs = Integer.parseInt(attr_new.rhs);
+        if(attr_leader.less_than){
+            if(n_rhs < l_rhs){
+                return true;
+            }
+        }
+        else if(attr_leader.more_than){
+            if(n_rhs > l_rhs){
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public String toString() {
         String attr = lhs + " ";

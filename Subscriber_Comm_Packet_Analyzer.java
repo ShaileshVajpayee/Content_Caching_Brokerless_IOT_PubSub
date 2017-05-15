@@ -28,6 +28,10 @@ public class Subscriber_Comm_Packet_Analyzer {
         return packet.attr.get_lhs();
     }
 
+    /**
+     * This function creates the relevant comm packet
+     * @param data
+     */
     public void init_packet(String[] data) {
         int i = 0;
 

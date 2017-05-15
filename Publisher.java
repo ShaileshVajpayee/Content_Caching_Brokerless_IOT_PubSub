@@ -21,6 +21,7 @@ public class Publisher {
 
     private static HashMap<String, Integer> nearest_Fog_Nodes;
     private static String my_IP;
+    private static String my_Port;
     private static Logger logger;
     private static DatagramSocket Send_socket;
     private static DatagramSocket Listen_socket;
@@ -43,14 +44,21 @@ public class Publisher {
         new Thread(comm).start();
     }
 
+    /**
+     * main function
+     * @param args ListenPort RouterIP RouterPort attribute_name attribute_value
+     * @throws UnknownHostException
+     * @throws SocketException
+     */
     public static void main(String[] args) throws UnknownHostException, SocketException {
         if (args.length < 4) {
-            System.out.println("Please enter arguments:$ ListenPort RouterIP RouterPort attribute_name");
+            System.out.println("Please enter arguments:$ ListenPort RouterIP RouterPort attribute_name attribute_value");
             System.exit(0);
         }
         Publisher p = new Publisher();
         my_attribute = args[3];
-        attr_value = "10"; // generate randomly in a given range
+        attr_value = args[4]; // generate randomly in a given range
+        my_Port = args[0];
         Listen_socket = new DatagramSocket(Integer.parseInt(args[0]));
         Send_socket = new DatagramSocket();
         my_IP = InetAddress.getLocalHost().getHostAddress().toString();
@@ -61,6 +69,9 @@ public class Publisher {
         begin_threads();
     }
 
+    /**
+     * Class used for communication
+     */
     static class Communicator implements Runnable { // will have separate port
 
         private void sendMessage(String IP, int Port, String msg) {
@@ -102,7 +113,7 @@ public class Publisher {
             try {
                 while (true) {
                     publish_to_fog();
-                    Thread.sleep(5000);
+                    Thread.sleep(10000);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
